@@ -2,7 +2,6 @@
 	single linked list merge
 	This problem requires you to merge two ordered singly linked lists into one ordered singly linked list
 */
-// I AM NOT DONE
 
 use std::fmt::{self, Display, Formatter};
 use std::ptr::NonNull;
@@ -69,15 +68,50 @@ impl<T> LinkedList<T> {
             },
         }
     }
-	pub fn merge(list_a:LinkedList<T>,list_b:LinkedList<T>) -> Self
-	{
-		//TODO
-		Self {
-            length: 0,
-            start: None,
-            end: None,
+    pub fn merge(list_a: LinkedList<T>, list_b: LinkedList<T>) -> Self
+    where
+        T: Ord,
+    {
+        // Reuse the nodes of both lists; walk each with a raw pointer so we do
+        // not have to allocate anything.
+        let mut merged = Self::new();
+
+        let mut pa = list_a.start.map(|p| p.as_ptr());
+        let mut pb = list_b.start.map(|p| p.as_ptr());
+
+        while let (Some(a), Some(b)) = (pa, pb) {
+            let take_a = unsafe { (*a).val <= (*b).val };
+            let chosen = if take_a {
+                pa = unsafe { (*a).next }.map(|p| p.as_ptr());
+                a
+            } else {
+                pb = unsafe { (*b).next }.map(|p| p.as_ptr());
+                b
+            };
+            unsafe { (*chosen).next = None };
+            merged.link_tail(chosen);
         }
-	}
+
+        let mut rest = pa.or(pb);
+        while let Some(node) = rest {
+            rest = unsafe { (*node).next }.map(|p| p.as_ptr());
+            unsafe { (*node).next = None };
+            merged.link_tail(node);
+        }
+
+        merged
+    }
+
+    // Append an already-allocated node (raw pointer) at the end of the list.
+    fn link_tail(&mut self, node: *mut Node<T>) {
+        let node_ptr = Some(unsafe { NonNull::new_unchecked(node) });
+        match self.end {
+            None => self.start = node_ptr,
+            Some(mut end_ptr) => unsafe { (*end_ptr.as_mut()).next = node_ptr },
+        }
+        self.end = node_ptr;
+        self.length += 1;
+    }
 }
 
 impl<T> Display for LinkedList<T>
